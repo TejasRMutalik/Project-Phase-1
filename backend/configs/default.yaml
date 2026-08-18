@@ -1,0 +1,20 @@
+model:
+  yolo_weights: "weights/yolov8n.pt"
+  confidence_threshold: 0.5
+  iou_threshold: 0.45
+  classes: [2, 3, 5, 7] # car, motorcycle, bus, truck
+
+tracker:
+  max_age: 30
+  n_init: 3
+  nn_budget: 100
+
+anpr:
+  ocr_language: ["en"]
+  confidence_threshold: 0.6
+
+camera:
+  sources:
+    - "rtsp://camera1.local/stream"
+    - "rtsp://camera2.local/stream"
+  fps: 30

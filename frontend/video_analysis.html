@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CityWatch | Video Analysis</title>
+    <link rel="stylesheet" href="css/global.css">
+    <style>
+        .analysis-layout {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 3rem;
+            text-align: center;
+            background: rgba(255,255,255,0.01);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: var(--accent-blue);
+            margin-bottom: 1rem;
+        }
+
+        .upload-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .upload-subtitle {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .processing-state {
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 2rem;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-base);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: var(--accent-blue);
+            transition: width 0.2s;
+        }
+
+        .log-stream {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: #000;
+            padding: 1rem;
+            border-radius: 6px;
+            height: 150px;
+            overflow-y: auto;
+        }
+
+        .results-section {
+            display: none;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .table-container {
+            max-height: 400px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                CITYWATCH
+                <span>// TRAFFIC SURVEILLANCE</span>
+            </div>
+        </div>
+        <nav class="nav-links">
+            <a href="dashboard.html" class="nav-item">Live Dashboard</a>
+            <a href="video_analysis.html" class="nav-item active">Video Analysis</a>
+            <a href="settings.html" class="nav-item">System Settings</a>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <header class="top-bar">
+            <div class="page-title">Offline Video Analysis Engine</div>
+            <div class="status-badge">
+                <div class="pulse-dot"></div>
+                ENGINE READY
+            </div>
+        </header>
+
+        <div class="analysis-layout">
+            <!-- Upload Zone -->
+            <div class="upload-zone" id="uploadZone">
+                <div class="upload-icon">📁</div>
+                <div class="upload-title">Drag & Drop CCTV Footage</div>
+                <div class="upload-subtitle">Supports MP4, AVI, MKV (Max 500MB)</div>
+                <input type="file" id="fileInput" accept="video/*">
+            </div>
+
+            <!-- Processing State -->
+            <div class="processing-state" id="processingState">
+                <div style="display: flex; justify-content: space-between;">
+                    <div style="font-weight: 700;" id="processTitle">Analyzing: footage_cam01.mp4</div>
+                    <div id="processPct">0%</div>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="log-stream" id="logStream">
+                    <div>[SYSTEM] Initializing video analysis pipeline...</div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="results-section" id="resultsSection">
+                <div class="results-header">
+                    <h2 style="font-size: 1.25rem;">Analysis Complete</h2>
+                    <button style="padding: 8px 16px; background: var(--bg-panel); border: 1px solid var(--border-color); color: white; border-radius: 4px; cursor: pointer;" onclick="location.reload()">New Analysis</button>
+                </div>
+
+                <div class="stats-row">
+                    <div class="panel" style="padding: 1.5rem; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: 800; font-family: 'JetBrains Mono';">342</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">VEHICLES DETECTED</div>
+                    </div>
+                    <div class="panel" style="padding: 1.5rem; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: 800; font-family: 'JetBrains Mono'; color: var(--accent-red);">12</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">VIOLATIONS FLAGGED</div>
+                    </div>
+                    <div class="panel" style="padding: 1.5rem; text-align: center;">
+                        <div style="font-size: 2rem; font-weight: 800; font-family: 'JetBrains Mono'; color: var(--accent-green);">289</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">PLATES RECOGNIZED</div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">DETECTED VIOLATIONS REPORT</div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>TIMESTAMP</th>
+                                    <th>VIOLATION TYPE</th>
+                                    <th>VEHICLE CLASS</th>
+                                    <th>PLATE NO.</th>
+                                    <th>CONFIDENCE</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsBody">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+</div>
+
+<script>
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+    const processingState = document.getElementById('processingState');
+    const resultsSection = document.getElementById('resultsSection');
+    const progressBar = document.getElementById('progressBar');
+    const processPct = document.getElementById('processPct');
+    const logStream = document.getElementById('logStream');
+    const processTitle = document.getElementById('processTitle');
+
+    // Upload triggers
+    uploadZone.addEventListener('click', () => fileInput.click());
+    uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.borderColor = '#3b82f6'; });
+    uploadZone.addEventListener('dragleave', () => { uploadZone.style.borderColor = 'var(--border-color)'; });
+    uploadZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+        if(e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    function addLog(msg) {
+        const d = document.createElement('div');
+        d.innerText = `> ${msg}`;
+        logStream.appendChild(d);
+        logStream.scrollTop = logStream.scrollHeight;
+    }
+
+    function handleFile(file) {
+        uploadZone.style.display = 'none';
+        processingState.style.display = 'flex';
+        processTitle.innerText = `Analyzing: ${file.name}`;
+        
+        let pct = 0;
+        addLog(`Loaded file ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+        addLog('Extracting frames at 30 FPS...');
+
+        const interval = setInterval(() => {
+            pct += Math.random() * 5;
+            if(pct > 100) pct = 100;
+            
+            progressBar.style.width = pct + '%';
+            processPct.innerText = Math.floor(pct) + '%';
+
+            if(pct > 10 && Math.random() > 0.8) addLog(`[YOLOv8] Processing frame ${Math.floor(pct * 30)}...`);
+            if(pct > 30 && Math.random() > 0.9) addLog(`[DeepSORT] Tracking 4 objects...`);
+            if(pct > 50 && Math.random() > 0.9) addLog(`[EasyOCR] Running ANPR inference...`);
+
+            if(pct === 100) {
+                clearInterval(interval);
+                addLog('Analysis Complete. Generating report...');
+                setTimeout(showResults, 1000);
+            }
+        }, 150);
+    }
+
+    function showResults() {
+        processingState.style.display = 'none';
+        resultsSection.style.display = 'flex';
+
+        const tbody = document.getElementById('resultsBody');
+        const plates = ['KA01MH1234', 'MH12XX9921', 'TN09AB1122', 'DL4CAA9900'];
+        const types = ['NO HELMET', 'SIGNAL JUMP', 'OVERSPEEDING'];
+        const vclasses = ['MOTORCYCLE', 'CAR', 'CAR', 'TRUCK'];
+
+        for(let i=0; i<12; i++) {
+            const tr = document.createElement('tr');
+            const vtype = types[Math.floor(Math.random()*types.length)];
+            const vclass = vtype === 'NO HELMET' ? 'MOTORCYCLE' : vclasses[Math.floor(Math.random()*vclasses.length)];
+            
+            tr.innerHTML = `
+                <td style="color: #6b7280">00:${String(Math.floor(Math.random()*59)).padStart(2, '0')}:${String(Math.floor(Math.random()*59)).padStart(2, '0')}</td>
+                <td><span class="badge violation">${vtype}</span></td>
+                <td>${vclass}</td>
+                <td style="font-weight: 700;">${plates[Math.floor(Math.random()*plates.length)]}</td>
+                <td>${Math.floor(80 + Math.random()*15)}%</td>
+            `;
+            tbody.appendChild(tr);
+        }
+    }
+</script>
+</body>
+</html>

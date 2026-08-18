@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zarkaan | Live Dashboard</title>
+    <link rel="stylesheet" href="css/global.css">
+    <style>
+        .dashboard-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            flex-grow: 1;
+            height: calc(100vh - 70px);
+        }
+
+        /* Left Column: Cameras */
+        .camera-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .main-cam-container {
+            position: relative;
+            flex-grow: 1;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+        }
+
+        .main-cam-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .cam-overlay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .cam-overlay-bg {
+            background: rgba(0, 0, 0, 0.55);
+            padding: 8px 12px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .fps-counter {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.875rem;
+            color: var(--accent-green);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.55);
+            padding: 5px 10px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(16, 185, 129, 0.15);
+        }
+
+        .rec-indicator {
+            position: absolute;
+            top: 15px;
+            right: 120px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--accent-red);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.55);
+            padding: 5px 10px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(239, 68, 68, 0.15);
+        }
+
+        .rec-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-red);
+            animation: blink-rec 1s infinite;
+        }
+
+        @keyframes blink-rec {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.2;
+            }
+        }
+
+        .timestamp-overlay {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.85);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.55);
+            padding: 5px 10px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .violation-flash {
+            position: absolute;
+            inset: 0;
+            border: 4px solid var(--accent-red);
+            background: rgba(239, 68, 68, 0.1);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.1s;
+            z-index: 5;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 2rem;
+        }
+
+        .violation-flash.active {
+            opacity: 1;
+        }
+
+        .violation-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #fff;
+            background: var(--accent-red);
+            padding: 8px 24px;
+            border-radius: 4px;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.5);
+        }
+
+        .mini-cams {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            height: 110px;
+        }
+
+        .mini-cam {
+            background: #000;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .mini-cam:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .mini-cam video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.8;
+        }
+
+        .mini-cam-label {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.6rem;
+            color: rgba(255, 255, 255, 0.8);
+            background: rgba(0, 0, 0, 0.6);
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .mini-cam-status {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+        }
+
+        .mini-cam-status.inactive {
+            background: var(--accent-yellow);
+            box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
+        }
+
+        /* Right Column: Data */
+        .data-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow: hidden;
+        }
+
+        /* REDUCED stat card sizes */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.6rem;
+        }
+
+        .stat-card {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 0.7rem 0.9rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .stat-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.35rem;
+            font-weight: 800;
+        }
+
+        .stat-label {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .text-green {
+            color: var(--accent-green);
+        }
+
+        .text-red {
+            color: var(--accent-red);
+        }
+
+        .text-blue {
+            color: var(--accent-blue);
+        }
+
+        /* INCREASED table container height */
+        .table-container {
+            overflow-y: auto;
+            flex-grow: 1;
+            max-height: 350px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+
+        th,
+        td {
+            padding: 10px 16px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            color: var(--text-muted);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            background: var(--bg-panel);
+            z-index: 2;
+        }
+
+        /* INCREASED log container height */
+        .log-container {
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 300px;
+        }
+
+        .log-line {
+            line-height: 1.4;
+        }
+
+        .log-time {
+            color: #6b7280;
+        }
+
+        .log-module {
+            color: var(--accent-blue);
+            font-weight: 700;
+        }
+
+        .log-module.yolo {
+            color: var(--accent-yellow);
+        }
+
+        .log-module.ocr {
+            color: #a855f7;
+        }
+
+        @keyframes pulse-red {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        .badge.violation {
+            animation: pulse-red 2s infinite;
+        }
+
+        /* Video fallback placeholder */
+        .video-placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, #0a0f1a 0%, #111827 50%, #0a0f1a 100%);
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+        }
+
+        .video-placeholder-icon {
+            font-size: 2rem;
+            opacity: 0.4;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    PROJECT
+                    <span>// TRAFFIC SURVEILLANCE</span>
+                </div>
+            </div>
+            <nav class="nav-links">
+                <a href="dashboard.html" class="nav-item active">Live Dashboard</a>
+                <a href="video_analysis.html" class="nav-item">Video Analysis</a>
+                <a href="settings.html" class="nav-item">System Settings</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="page-title">Live Camera Feed Dashboard</div>
+                <div class="status-badge">
+                    <div class="pulse-dot"></div>
+                    SYSTEM OPERATIONAL
+                </div>
+            </header>
+
+            <div class="dashboard-layout">
+                <!-- Left: Camera Feeds -->
+                <div class="camera-section">
+                    <div class="main-cam-container">
+                        <video id="mainFeed" autoplay loop muted playsinline>
+                            <source src="assets/videos/traffic_main.mp4" type="video/mp4">
+                            <!-- Fallback: CDN source if local file not found -->
+                        </video>
+
+                        <div class="cam-overlay">
+                            <div class="cam-overlay-bg">
+                                CAM-01 | K.R. PURAM JUNCTION<br>
+                                MODEL: YOLOv8n + DeepSORT + EasyOCR
+                            </div>
+                        </div>
+
+                        <div class="rec-indicator">
+                            <div class="rec-dot"></div>
+                            REC
+                        </div>
+
+                        <div class="fps-counter" id="fpsDisplay">30 FPS</div>
+
+                        <div class="timestamp-overlay" id="timestampOverlay"></div>
+
+                        <div class="violation-flash" id="violationFlash">
+                            <div class="violation-text" id="violationText">SIGNAL JUMP DETECTED</div>
+                        </div>
+                    </div>
+
+                    <div class="mini-cams">
+                        <div class="mini-cam" onclick="switchMainFeed(0)">
+                            <video autoplay loop muted playsinline data-cam="1">
+                                <source src="assets/videos/traffic_cam2.mp4" type="video/mp4">
+                            </video>
+                            <div class="mini-cam-label">CAM-02 SILK BOARD</div>
+                            <div class="mini-cam-status"></div>
+                        </div>
+                        <div class="mini-cam" onclick="switchMainFeed(1)">
+                            <video autoplay loop muted playsinline data-cam="2">
+                                <source src="assets/videos/traffic_cam3.mp4" type="video/mp4">
+                            </video>
+                            <div class="mini-cam-label">CAM-03 MAJESTIC</div>
+                            <div class="mini-cam-status"></div>
+                        </div>
+                        <div class="mini-cam" onclick="switchMainFeed(2)">
+                            <video autoplay loop muted playsinline data-cam="3">
+                                <source src="assets/videos/traffic_cam4.mp4" type="video/mp4">
+                            </video>
+                            <div class="mini-cam-label">CAM-04 MG ROAD</div>
+                            <div class="mini-cam-status inactive"></div>
+                        </div>
+                        <div class="mini-cam" onclick="switchMainFeed(3)">
+                            <video autoplay loop muted playsinline data-cam="4">
+                                <source src="assets/videos/traffic_cam5.mp4" type="video/mp4">
+                            </video>
+                            <div class="mini-cam-label">CAM-05 HEBBAL</div>
+                            <div class="mini-cam-status inactive"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Data Dashboard -->
+                <div class="data-section">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-val" id="statDetected">1,402</div>
+                            <div class="stat-label">TOTAL VEHICLES DETECTED</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-val text-blue" id="statTracks">14</div>
+                            <div class="stat-label">ACTIVE DEEPSORT TRACKS</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-val text-green" id="statPlates">1,185</div>
+                            <div class="stat-label">VEHICLE NO. READ (ANPR)</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-val text-red" id="statViolations">87</div>
+                            <div class="stat-label">FLAGGED VIOLATIONS</div>
+                        </div>
+                    </div>
+
+                    <div class="panel" style="flex: 1.2;">
+                        <div class="panel-header">
+                            <span>ANPR & VIOLATION LOG</span>
+                            <span style="font-size: 0.7rem; color: var(--text-muted)">LIVE UPDATE</span>
+                        </div>
+                        <div class="table-container">
+                            <table id="anprTable">
+                                <thead>
+                                    <tr>
+                                        <th>TIME</th>
+                                        <th>VEHICLE NO.</th>
+                                        <th>CLASS</th>
+                                        <th>CONF</th>
+                                        <th>STATUS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="anprBody">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="panel tall" style="flex: 1;">
+                        <div class="panel-header">SYSTEM TERMINAL LOG</div>
+                        <div class="log-container" id="sysLog">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // === Configuration & State ===
+        const state = {
+            totalDetected: 1402,
+            activeTracks: 14,
+            platesRead: 1185,
+            violations: 87,
+        };
+
+        const vehicleClasses = ['CAR', 'MOTORCYCLE', 'TRUCK', 'BUS', 'AUTO'];
+        const platePrefixes = ['KA01', 'KA03', 'KA53', 'KA51', 'MH12', 'TN09', 'DL4C', 'KA05', 'AP09'];
+        const plateChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        const violationTypes = ['SIGNAL JUMP', 'OVERSPEEDING', 'NO HELMET', 'WRONG LANE', 'TRIPLE RIDING'];
+
+        const camNames = [
+            'CAM-01 | K.R. PURAM JUNCTION',
+            'CAM-02 | SILK BOARD JUNCTION',
+            'CAM-03 | MAJESTIC FLYOVER',
+            'CAM-04 | MG ROAD SIGNAL',
+            'CAM-05 | HEBBAL INTERCHANGE'
+        ];
+
+        // CDN fallback URLs (Pixabay free traffic videos)
+        const cdnFallbacks = [
+            'https://cdn.pixabay.com/video/2019/03/13/21985-323496013_large.mp4',
+            'https://cdn.pixabay.com/video/2023/09/13/180386-864121573_large.mp4',
+            'https://cdn.pixabay.com/video/2018/11/29/19627-304735769_large.mp4',
+            'https://cdn.pixabay.com/video/2022/11/22/140078-774032962_large.mp4',
+            'https://cdn.pixabay.com/video/2019/05/01/23232-333604632_large.mp4'
+        ];
+
+        const localSources = [
+            'assets/videos/traffic_main.mp4',
+            'assets/videos/traffic_cam2.mp4',
+            'assets/videos/traffic_cam3.mp4',
+            'assets/videos/traffic_cam4.mp4',
+            'assets/videos/traffic_cam5.mp4'
+        ];
+
+        // === DOM Elements ===
+        const mainVideo = document.getElementById('mainFeed');
+        const violationFlash = document.getElementById('violationFlash');
+        const violationText = document.getElementById('violationText');
+        const timestampOverlay = document.getElementById('timestampOverlay');
+
+        // === Simulation Helpers ===
+        function generatePlate() {
+            const prefix = platePrefixes[Math.floor(Math.random() * platePrefixes.length)];
+            const l1 = plateChars[Math.floor(Math.random() * 26)];
+            const l2 = plateChars[Math.floor(Math.random() * 26)];
+            const num = Math.floor(1000 + Math.random() * 8999);
+            return `${prefix}${l1}${l2}${num}`;
+        }
+
+        function getTimestamp() {
+            const now = new Date();
+            return now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+        }
+
+        function getDateTimestamp() {
+            const now = new Date();
+            const date = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+            const time = now.toTimeString().split(' ')[0];
+            return `${date} | ${time}`;
+        }
+
+        function addLog(module, text) {
+            const logBox = document.getElementById('sysLog');
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            let modClass = 'log-module';
+            if (module.includes('YOLO')) modClass += ' yolo';
+            if (module.includes('OCR')) modClass += ' ocr';
+
+            line.innerHTML = `<span class="log-time">[${getTimestamp()}]</span> <span class="${modClass}">[${module}]</span> ${text}`;
+            logBox.appendChild(line);
+
+            if (logBox.children.length > 50) logBox.removeChild(logBox.firstChild);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function addTableRow(plate, vClass, conf, violationType) {
+            const tbody = document.getElementById('anprBody');
+            const row = document.createElement('tr');
+
+            let statusHtml = `<span class="badge normal">CLEAN</span>`;
+            if (violationType) {
+                statusHtml = `<span class="badge violation">${violationType}</span>`;
+            }
+
+            row.innerHTML = `
+            <td style="color: #6b7280">${getTimestamp().split('.')[0]}</td>
+            <td style="font-weight: 700; color: var(--text-main)">${plate}</td>
+            <td>${vClass}</td>
+            <td>${conf}%</td>
+            <td>${statusHtml}</td>
+        `;
+
+            tbody.insertBefore(row, tbody.firstChild);
+            if (tbody.children.length > 20) tbody.removeChild(tbody.lastChild);
+        }
+
+        function triggerViolation(type, plate, vClass) {
+            state.violations++;
+            document.getElementById('statViolations').innerText = state.violations;
+
+            violationText.innerText = type + " DETECTED";
+            violationFlash.classList.add('active');
+            setTimeout(() => { violationFlash.classList.remove('active'); }, 800);
+
+            addLog('RULES_ENGINE', `Violation flagged: ${type} for vehicle ${plate}`);
+            addTableRow(plate, vClass, Math.floor(80 + Math.random() * 15), type);
+        }
+
+        // === Switch main feed when clicking a mini cam ===
+        function switchMainFeed(index) {
+            const mainSource = mainVideo.querySelector('source');
+            mainSource.src = localSources[index + 1]; // +1 because index 0 is the main cam
+            mainVideo.load();
+            mainVideo.play().catch(() => {
+                // If local fails, try CDN
+                mainSource.src = cdnFallbacks[index + 1];
+                mainVideo.load();
+                mainVideo.play();
+            });
+
+            // Update overlay
+            const overlay = document.querySelector('.cam-overlay-bg');
+            overlay.innerHTML = `${camNames[index + 1]}<br>MODEL: YOLOv8n + DeepSORT + EasyOCR`;
+        }
+
+        // === Live timestamp overlay ===
+        function updateTimestamp() {
+            timestampOverlay.textContent = getDateTimestamp();
+        }
+
+        // === Simulated data stream (runs alongside real video) ===
+        function simulateDetection() {
+            const vClass = vehicleClasses[Math.floor(Math.random() * vehicleClasses.length)];
+            const plate = generatePlate();
+            const conf = Math.floor(80 + Math.random() * 18);
+
+            state.totalDetected++;
+            document.getElementById('statDetected').innerText = state.totalDetected.toLocaleString();
+
+            // Randomly update active tracks
+            state.activeTracks = Math.floor(8 + Math.random() * 12);
+            document.getElementById('statTracks').innerText = state.activeTracks;
+
+            // OCR read
+            state.platesRead++;
+            document.getElementById('statPlates').innerText = state.platesRead.toLocaleString();
+
+            // Log detection
+            addLog('YOLOv8', `Detection: ${vClass} (conf: ${(conf / 100).toFixed(2)}) at frame ${Math.floor(Math.random() * 9000)}`);
+
+            // Sometimes log OCR
+            if (Math.random() > 0.3) {
+                setTimeout(() => {
+                    addLog('EasyOCR', `Plate read: ${plate} (Conf: ${(0.8 + Math.random() * 0.15).toFixed(2)})`);
+                }, 200 + Math.random() * 400);
+            }
+
+            // Sometimes log DeepSORT
+            if (Math.random() > 0.5) {
+                setTimeout(() => {
+                    addLog('DeepSORT', `Track #${10000 + Math.floor(Math.random() * 5000)} confirmed (${vClass})`);
+                }, 100 + Math.random() * 300);
+            }
+
+            // Check for violation (~8% chance)
+            if (Math.random() < 0.08) {
+                const violationType = violationTypes[Math.floor(Math.random() * violationTypes.length)];
+                setTimeout(() => {
+                    triggerViolation(violationType, plate, vClass);
+                }, 500 + Math.random() * 1000);
+            } else {
+                addTableRow(plate, vClass, conf, null);
+            }
+        }
+
+        // === FPS Counter simulation ===
+        function updateFPS() {
+            document.getElementById('fpsDisplay').innerText = `${Math.floor(Math.random() * 5 + 28)} FPS`;
+        }
+
+        // === Initialize ===
+        function init() {
+            // === Video fallback: try local first, then CDN ===
+            function setupVideoFallback(videoEl, camIndex) {
+                videoEl.addEventListener('error', function handleError() {
+                    const source = videoEl.querySelector('source');
+                    if (source && !source.src.includes('cdn.pixabay.com')) {
+                        console.log(`Local video failed for CAM-${camIndex + 1}, trying CDN...`);
+                        source.src = cdnFallbacks[camIndex];
+                        videoEl.load();
+                        videoEl.play().catch(() => { });
+                    }
+                }, true);
+                // Also handle source error
+                const source = videoEl.querySelector('source');
+                if (source) {
+                    source.addEventListener('error', function () {
+                        if (!source.src.includes('cdn.pixabay.com')) {
+                            console.log(`Local source failed for CAM-${camIndex + 1}, trying CDN...`);
+                            source.src = cdnFallbacks[camIndex];
+                            videoEl.load();
+                            videoEl.play().catch(() => { });
+                        }
+                    });
+                }
+            }
+
+            // Setup fallback for main video
+            setupVideoFallback(mainVideo, 0);
+
+            // Setup fallback for mini cams
+            document.querySelectorAll('.mini-cam video').forEach((video, index) => {
+                setupVideoFallback(video, index + 1);
+            });
+
+            // Boot sequence logs
+            addLog('SYSTEM', 'Booting Zarkaan Traffic Surveillance System v2.1...');
+            addLog('SYSTEM', 'Loading configs from default.yaml...');
+            setTimeout(() => addLog('YOLOv8', 'Weights loaded successfully (yolov8n.pt)'), 500);
+            setTimeout(() => addLog('DeepSORT', 'Tracker initialized. max_age=30, n_init=3'), 800);
+            setTimeout(() => addLog('EasyOCR', 'OCR engine loaded (lang: en, gpu: true)'), 1200);
+            setTimeout(() => {
+                addLog('API', 'Stream Server running on ws://0.0.0.0:8000');
+                addLog('SYSTEM', 'All cameras online. Starting inference pipeline...');
+            }, 1500);
+
+            // Update live timestamp every second
+            updateTimestamp();
+            setInterval(updateTimestamp, 1000);
+
+            // Update FPS every second
+            setInterval(updateFPS, 1000);
+
+            // Simulate detections at random intervals (every 2-5 seconds)
+            function scheduleNextDetection() {
+                const delay = 2000 + Math.random() * 3000;
+                setTimeout(() => {
+                    simulateDetection();
+                    scheduleNextDetection();
+                }, delay);
+            }
+
+            // Start simulation after boot
+            setTimeout(() => {
+                scheduleNextDetection();
+            }, 2000);
+
+            // Periodic YOLOv8 inference log
+            setInterval(() => {
+                addLog('YOLOv8', `Inference complete: ${state.activeTracks} objects detected in ${(8 + Math.random() * 8).toFixed(1)}ms`);
+            }, 5000);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+
+</html>
