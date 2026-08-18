@@ -1,10 +1,10 @@
-# Zarkaan Traffic Surveillance - Video Downloader
+# Project Phase 1 Traffic Surveillance - Video Downloader
 # Downloads free traffic surveillance footage from Pixabay (Pixabay License - free for commercial use)
 # Run this script from the project root or frontend directory
 
 Write-Host ""
 Write-Host "=========================================" -ForegroundColor Cyan
-Write-Host "  ZARKAAN VIDEO ASSET DOWNLOADER" -ForegroundColor Cyan
+Write-Host "  PROJECT PHASE 1 VIDEO ASSET DOWNLOADER" -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host ""
 

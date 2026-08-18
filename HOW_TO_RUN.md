@@ -1,6 +1,6 @@
-# How to Run the Zarkaan Demo
+# How to Run the Project Phase 1 Demo
 
-To run the full-stack simulation of Zarkaan locally on your machine, follow these steps in your terminal:
+To run the full-stack simulation of Project Phase 1 locally on your machine, follow these steps in your terminal:
 
 ### Step 1: Open Terminal
 Open your Command Prompt, PowerShell, or VS Code terminal.

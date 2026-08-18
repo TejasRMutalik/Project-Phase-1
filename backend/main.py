@@ -12,9 +12,9 @@ import os
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("Zarkaan")
+logger = logging.getLogger("ProjectPhase1")
 
-app = FastAPI(title="Zarkaan Backend API")
+app = FastAPI(title="Project Phase 1 Backend API")
 
 # Allow CORS for development
 app.add_middleware(
@@ -48,5 +48,5 @@ else:
 
 
 if __name__ == "__main__":
-    logger.info("Starting Zarkaan Backend Server with FastAPI...")
+    logger.info("Starting Project Phase 1 Backend Server with FastAPI...")
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -1,6 +1,6 @@
 @echo off
 echo ===================================================
-echo      Zarkaan Phase 1 Demo - Startup Script
+echo      Project Phase 1 Demo - Startup Script
 echo ===================================================
 echo.
 echo Installing requirements (fastapi, uvicorn)...

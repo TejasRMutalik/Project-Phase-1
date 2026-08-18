@@ -1,7 +1,7 @@
-# Zarkaan - AI-based Traffic Surveillance System
+# Project Phase 1 - AI-based Traffic Surveillance System
 
 ## Project Overview
-Zarkaan is an AI-powered traffic surveillance system designed to detect and monitor vehicles in real-time from traffic camera feeds. It utilizes state-of-the-art computer vision models to track vehicles, read number plates, and flag traffic violations automatically.
+Project Phase 1 is an AI-powered traffic surveillance system designed to detect and monitor vehicles in real-time from traffic camera feeds. It utilizes state-of-the-art computer vision models to track vehicles, read number plates, and flag traffic violations automatically.
 
 This project is developed as a final-year engineering project by Batch 60, Cambridge Institute of Technology, ISE Dept., under the guidance of Dr. Karthik P.
 
