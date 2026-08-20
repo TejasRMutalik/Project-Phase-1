@@ -7,7 +7,7 @@ import logging
 
 import cv2
 from fastapi import APIRouter, UploadFile, File, BackgroundTasks, Depends, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
 
 from db.session import get_db, SessionLocal
@@ -61,6 +61,18 @@ def process_uploaded_video_job(job_id: str, file_path: str):
         db.close()
 
 
+def save_thumbnail(job_id: str, file_path: str) -> None:
+    """Grab the first frame as a JPEG preview. Cheap - runs before the
+    background job even starts, so a thumbnail exists immediately."""
+    cap = cv2.VideoCapture(file_path)
+    ret, frame = cap.read()
+    cap.release()
+    if not ret:
+        return
+    thumb_path = os.path.join(UPLOAD_DIR, f"{job_id}_thumb.jpg")
+    cv2.imwrite(thumb_path, frame)
+
+
 @router.post("/api/upload_video")
 async def upload_video(background_tasks: BackgroundTasks, file: UploadFile = File(...), db: Session = Depends(get_db)):
     """Upload video file for async pipeline analysis."""
@@ -71,6 +83,8 @@ async def upload_video(background_tasks: BackgroundTasks, file: UploadFile = Fil
         content = await file.read()
         buffer.write(content)
 
+    save_thumbnail(job_id, file_path)
+
     job = UploadJob(id=job_id, filename=file.filename, status="PENDING", progress=0.0)
     db.add(job)
     db.commit()
@@ -78,6 +92,35 @@ async def upload_video(background_tasks: BackgroundTasks, file: UploadFile = Fil
     background_tasks.add_task(process_uploaded_video_job, job_id, file_path)
 
     return {"job_id": job_id, "filename": file.filename, "status": "PENDING", "message": "Video received. Processing queued."}
+
+
+@router.get("/api/jobs/{job_id}/thumbnail")
+async def get_job_thumbnail(job_id: str, db: Session = Depends(get_db)):
+    """First-frame JPEG preview for a job, used by the dashboard's Recent Uploads panel."""
+    job = db.query(UploadJob).filter(UploadJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    thumb_path = os.path.join(UPLOAD_DIR, f"{job_id}_thumb.jpg")
+    if not os.path.isfile(thumb_path):
+        raise HTTPException(status_code=404, detail="Thumbnail not available")
+
+    return FileResponse(thumb_path, media_type="image/jpeg")
+
+
+@router.get("/api/jobs/{job_id}/video")
+async def get_job_video(job_id: str, db: Session = Depends(get_db)):
+    """The originally uploaded video file, used to play real footage on the
+    dashboard's main feed / mini-cams instead of the demo clips."""
+    job = db.query(UploadJob).filter(UploadJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    file_path = os.path.join(UPLOAD_DIR, f"{job_id}_{job.filename}")
+    if not os.path.isfile(file_path):
+        raise HTTPException(status_code=404, detail="Video file not available")
+
+    return FileResponse(file_path, media_type="video/mp4")
 
 
 @router.get("/api/jobs/{job_id}")
@@ -115,7 +158,9 @@ async def list_jobs(limit: int = 4, db: Session = Depends(get_db)):
             "progress": job.progress,
             "created_at": job.created_at.isoformat() if job.created_at else None,
             "vehicles_detected": vehicle_count,
-            "violations_flagged": violation_count
+            "violations_flagged": violation_count,
+            "thumbnail_url": f"/api/jobs/{job.id}/thumbnail",
+            "video_url": f"/api/jobs/{job.id}/video"
         })
     return result
 

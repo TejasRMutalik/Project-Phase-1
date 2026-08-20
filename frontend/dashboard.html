@@ -348,6 +348,84 @@
             animation: pulse-red 2s infinite;
         }
 
+        .uploads-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.6rem;
+            padding: 0.9rem;
+        }
+
+        .upload-thumb-card {
+            position: relative;
+            aspect-ratio: 16 / 10;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #000;
+            border: 1px solid var(--border-color);
+        }
+
+        .upload-thumb-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .upload-thumb-fallback {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            opacity: 0.35;
+            background: linear-gradient(135deg, #0a0f1a 0%, #111827 50%, #0a0f1a 100%);
+        }
+
+        .upload-thumb-status {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(2px);
+        }
+
+        .upload-thumb-status.COMPLETED { color: var(--accent-green); }
+        .upload-thumb-status.PROCESSING { color: var(--accent-blue); }
+        .upload-thumb-status.FAILED { color: var(--accent-red); }
+        .upload-thumb-status.PENDING { color: var(--text-muted); }
+
+        .upload-thumb-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 4px 6px;
+            background: linear-gradient(0deg, rgba(0, 0, 0, 0.85), transparent);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .upload-thumb-name {
+            font-size: 0.65rem;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .upload-thumb-counts {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+        }
+
+        .upload-thumb-counts .text-red {
+            color: var(--accent-red);
+        }
+
         /* Video fallback placeholder */
         .video-placeholder {
             width: 100%;
@@ -430,32 +508,32 @@
 
                     <div class="mini-cams">
                         <div class="mini-cam" onclick="switchMainFeed(0)">
-                            <video autoplay loop muted playsinline data-cam="1">
+                            <video id="miniVideo0" autoplay loop muted playsinline>
                                 <source src="assets/videos/traffic_cam2.mp4" type="video/mp4">
                             </video>
-                            <div class="mini-cam-label">CAM-02 SILK BOARD</div>
-                            <div class="mini-cam-status"></div>
+                            <div class="mini-cam-label" id="miniLabel0">CAM-02 SILK BOARD</div>
+                            <div class="mini-cam-status" id="miniStatus0"></div>
                         </div>
                         <div class="mini-cam" onclick="switchMainFeed(1)">
-                            <video autoplay loop muted playsinline data-cam="2">
+                            <video id="miniVideo1" autoplay loop muted playsinline>
                                 <source src="assets/videos/traffic_cam3.mp4" type="video/mp4">
                             </video>
-                            <div class="mini-cam-label">CAM-03 MAJESTIC</div>
-                            <div class="mini-cam-status"></div>
+                            <div class="mini-cam-label" id="miniLabel1">CAM-03 MAJESTIC</div>
+                            <div class="mini-cam-status" id="miniStatus1"></div>
                         </div>
                         <div class="mini-cam" onclick="switchMainFeed(2)">
-                            <video autoplay loop muted playsinline data-cam="3">
+                            <video id="miniVideo2" autoplay loop muted playsinline>
                                 <source src="assets/videos/traffic_cam4.mp4" type="video/mp4">
                             </video>
-                            <div class="mini-cam-label">CAM-04 MG ROAD</div>
-                            <div class="mini-cam-status inactive"></div>
+                            <div class="mini-cam-label" id="miniLabel2">CAM-04 MG ROAD</div>
+                            <div class="mini-cam-status inactive" id="miniStatus2"></div>
                         </div>
                         <div class="mini-cam" onclick="switchMainFeed(3)">
-                            <video autoplay loop muted playsinline data-cam="4">
+                            <video id="miniVideo3" autoplay loop muted playsinline>
                                 <source src="assets/videos/traffic_cam5.mp4" type="video/mp4">
                             </video>
-                            <div class="mini-cam-label">CAM-05 HEBBAL</div>
-                            <div class="mini-cam-status inactive"></div>
+                            <div class="mini-cam-label" id="miniLabel3">CAM-05 HEBBAL</div>
+                            <div class="mini-cam-status inactive" id="miniStatus3"></div>
                         </div>
                     </div>
                 </div>
@@ -511,25 +589,13 @@
                         </div>
                     </div>
 
-                    <div class="panel" style="flex: 0.7;">
+                    <div class="panel" style="flex: 0.9;">
                         <div class="panel-header">
                             <span>RECENT UPLOADS</span>
                             <span style="font-size: 0.7rem; color: var(--text-muted)">LATEST 4</span>
                         </div>
-                        <div class="table-container">
-                            <table id="recentUploadsTable">
-                                <thead>
-                                    <tr>
-                                        <th>FILE</th>
-                                        <th>STATUS</th>
-                                        <th>VEHICLES</th>
-                                        <th>VIOLATIONS</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="recentUploadsBody">
-                                    <!-- Populated by JS -->
-                                </tbody>
-                            </table>
+                        <div class="uploads-grid" id="recentUploadsGrid">
+                            <!-- Populated by JS -->
                         </div>
                     </div>
                 </div>
@@ -637,21 +703,79 @@
             addTableRow(plate, vClass, Math.floor(80 + Math.random() * 15), type);
         }
 
-        // === Switch main feed when clicking a mini cam ===
-        function switchMainFeed(index) {
+        // === Camera feeds: real uploaded videos when available, demo clips as fallback ===
+        // cameraFeeds[0] = main feed, cameraFeeds[1..4] = the 4 mini-cams.
+        // Each entry: { isUpload, src, label } - built fresh every poll from /api/jobs.
+        let cameraFeeds = [0, 1, 2, 3, 4].map(i => demoFeed(i));
+
+        function demoFeed(demoIndex) {
+            return { isUpload: false, src: localSources[demoIndex], label: camNames[demoIndex] };
+        }
+
+        function uploadFeed(job) {
+            return { isUpload: true, src: job.video_url, label: `UPLOAD-CAM | ${job.filename}` };
+        }
+
+        function applyMainFeed(feed) {
             const mainSource = mainVideo.querySelector('source');
-            mainSource.src = localSources[index + 1]; // +1 because index 0 is the main cam
+            mainSource.src = feed.src;
             mainVideo.load();
             mainVideo.play().catch(() => {
-                // If local fails, try CDN
-                mainSource.src = cdnFallbacks[index + 1];
-                mainVideo.load();
-                mainVideo.play();
+                if (!feed.isUpload) {
+                    // Demo clip failed locally - try the CDN fallback.
+                    mainSource.src = cdnFallbacks[0];
+                    mainVideo.load();
+                    mainVideo.play().catch(() => {});
+                }
             });
 
-            // Update overlay
             const overlay = document.querySelector('.cam-overlay-bg');
-            overlay.innerHTML = `${camNames[index + 1]}<br>MODEL: YOLOv8n + DeepSORT + EasyOCR`;
+            overlay.innerHTML = `${feed.label}<br>MODEL: YOLOv8n + DeepSORT + EasyOCR`;
+        }
+
+        function applyMiniCam(slot, feed) {
+            const video = document.getElementById(`miniVideo${slot}`);
+            const source = video.querySelector('source');
+            source.src = feed.src;
+            video.load();
+            video.play().catch(() => {
+                if (!feed.isUpload) {
+                    source.src = cdnFallbacks[slot + 1];
+                    video.load();
+                    video.play().catch(() => {});
+                }
+            });
+
+            document.getElementById(`miniLabel${slot}`).innerText = feed.label;
+            const statusDot = document.getElementById(`miniStatus${slot}`);
+            statusDot.classList.toggle('inactive', !feed.isUpload);
+        }
+
+        // === Switch main feed when clicking a mini cam ===
+        function switchMainFeed(slot) {
+            applyMainFeed(cameraFeeds[slot + 1]);
+        }
+
+        // === Pull the latest uploads and wire them into the main feed + mini-cams,
+        // falling back to demo clips for any slot with no upload to fill it ===
+        async function refreshCameraFeeds() {
+            try {
+                const res = await fetch('/api/jobs?limit=5');
+                const jobs = await res.json();
+                const nextFeeds = [0, 1, 2, 3, 4].map(i => jobs[i] ? uploadFeed(jobs[i]) : demoFeed(i));
+
+                // Only reload a <video> whose source actually changed - reloading on
+                // every 5s poll would restart playback from frame 0 each time.
+                if (nextFeeds[0].src !== cameraFeeds[0].src) applyMainFeed(nextFeeds[0]);
+                for (let slot = 0; slot < 4; slot++) {
+                    if (nextFeeds[slot + 1].src !== cameraFeeds[slot + 1].src) {
+                        applyMiniCam(slot, nextFeeds[slot + 1]);
+                    }
+                }
+                cameraFeeds = nextFeeds;
+            } catch (err) {
+                console.error('Error refreshing camera feeds:', err);
+            }
         }
 
         // === Live timestamp overlay ===
@@ -733,24 +857,31 @@
             });
         }
 
-        // === Recent uploaded files panel ===
+        // === Recent uploaded files panel (thumbnail preview of the 4 latest uploads) ===
         async function loadRecentUploads() {
             try {
                 const res = await fetch('/api/jobs?limit=4');
                 const jobs = await res.json();
-                const tbody = document.getElementById('recentUploadsBody');
-                tbody.innerHTML = '';
+                const grid = document.getElementById('recentUploadsGrid');
+                grid.innerHTML = '';
 
                 jobs.forEach(job => {
-                    const tr = document.createElement('tr');
-                    const statusClass = job.status === 'FAILED' ? 'violation' : 'normal';
-                    tr.innerHTML = `
-                        <td style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${job.filename}">${job.filename}</td>
-                        <td><span class="badge ${statusClass}">${job.status}${job.status === 'PROCESSING' ? ' ' + Math.floor(job.progress) + '%' : ''}</span></td>
-                        <td>${job.vehicles_detected}</td>
-                        <td>${job.violations_flagged}</td>
+                    const card = document.createElement('div');
+                    card.className = 'upload-thumb-card';
+                    const statusLabel = job.status === 'PROCESSING'
+                        ? `${job.status} ${Math.floor(job.progress)}%`
+                        : job.status;
+
+                    card.innerHTML = `
+                        <img src="${job.thumbnail_url}" alt="${job.filename}" title="${job.filename}"
+                             onerror="this.replaceWith(Object.assign(document.createElement('div'), {className: 'upload-thumb-fallback', innerText: '\u{1F4F9}'}))">
+                        <div class="upload-thumb-status ${job.status}">${statusLabel}</div>
+                        <div class="upload-thumb-info">
+                            <div class="upload-thumb-name">${job.filename}</div>
+                            <div class="upload-thumb-counts">${job.vehicles_detected} vehicles &middot; <span class="text-red">${job.violations_flagged} violations</span></div>
+                        </div>
                     `;
-                    tbody.appendChild(tr);
+                    grid.appendChild(card);
                 });
             } catch (err) {
                 console.error('Error loading recent uploads:', err);
@@ -796,6 +927,9 @@
 
             loadRecentUploads();
             setInterval(loadRecentUploads, 5000);
+
+            refreshCameraFeeds();
+            setInterval(refreshCameraFeeds, 5000);
 
             // Connect to real backend WebSocket
             connectWebSocket();

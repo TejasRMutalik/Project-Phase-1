@@ -1,0 +1,22 @@
+# YOLO dataset config for the IDD fine-tune.
+# See docs/MODEL_TRAINING_PLAN.md step 2.
+#
+# `path` is absolute on purpose. When it is omitted, Ultralytics resolves
+# train/val against its global `datasets_dir` setting -- NOT against this
+# file's location -- which silently looks in the wrong place.
+path: D:/projects/Project-Phase-1/backend/dataset
+
+train: images/train
+val: images/val
+
+# The list index IS the class id written into every label .txt.
+# Must stay in sync with CLASS_MAP in scripts/convert_idd_to_yolo.py and,
+# after deploying best.pt, with CLASS_NAME_MAP in src/pipeline/pipeline.py.
+# Reordering this list silently relabels the entire dataset.
+nc: 5
+names:
+  - car          # 0
+  - motorcycle   # 1
+  - bus          # 2
+  - truck        # 3
+  - autorickshaw # 4

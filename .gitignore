@@ -28,10 +28,17 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Large demo asset downloads (optional)
-# frontend/assets/videos/*.mp4
+# Large demo asset downloads - refetch via frontend/download_videos.ps1
+frontend/assets/videos/*.mp4
 
 # Fetchable/runtime artifacts - not source
 backend/weights/
 backend/assets/
 backend/uploads/
+
+# Training data & run output - not source
+# Ignore dataset *contents* (not the dir itself) so traffic_data.yaml can be
+# re-included - a negation under a fully-excluded dir would be a no-op.
+backend/dataset/*
+!backend/dataset/traffic_data.yaml
+backend/runs/

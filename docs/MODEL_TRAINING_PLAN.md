@@ -1,8 +1,26 @@
 # Model Training Plan — YOLOv8 Fine-Tune
 
-Status as of 2026-08-20: not started. `backend/scripts/train_yolov8.py` is still the
-fake placeholder described in `BACKEND_FIX_PLAN.md` section 04. This doc is the
-step-by-step execution plan for when the GPU laptop is available.
+Status as of 2026-08-20: **in progress.** Dataset downloaded
+(`D:\idd-detection.tar.gz`, 22.8 GB) and extracting into `backend/dataset/`.
+`backend/scripts/train_yolov8.py` is still the fake placeholder described in
+`BACKEND_FIX_PLAN.md` section 04.
+
+### Corrections applied 2026-08-20 (supersede the original draft)
+
+1. **Class ids are contiguous `0-4`, not the COCO ids.** The original draft
+   reused `pipeline.py`'s `CLASS_NAME_MAP` ids (`car=2 … truck=7`) with
+   `nc: 4`. That is invalid: a YOLO label's class field is a 0-indexed offset
+   into `names`, so id `7` under `nc: 4` is out of range. `CLASS_NAME_MAP`
+   must be rewritten at deploy time regardless — a fine-tuned checkpoint emits
+   its own indices, not COCO's.
+2. **Training runs on this machine.** It has an NVIDIA GTX 1650 Ti (4 GB).
+   The "no GPU here, use the separate laptop" premise in Step 5 is dropped.
+   4 GB VRAM means **`--batch 8`**, not 16.
+3. **`JPEGImages/` nests two levels deep**, not one, and per-sequence frame
+   numbering repeats — see Step 1.
+4. `backend/dataset/` and `backend/runs/` are now gitignored (`dataset/*`
+   with `traffic_data.yaml` re-included). Without this a 40k-file dataset
+   lands in `git status`.
 
 ## Why fine-tune
 
@@ -28,17 +46,26 @@ Rejected alternatives and why:
 
 ## Step 1 — Get dataset, convert to YOLO format
 
-1. **Extract** the downloaded `IDD_Detection.tar.gz` into `backend/dataset/`.
-   Expected layout (confirm against actual extracted folder — IDD's release
-   layout has varied by year):
+1. **Extract** `D:\idd-detection.tar.gz` into `backend/dataset/`.
+   Layout **confirmed** by listing the archive (not guessed):
    ```
    IDD_Detection/
-     JPEGImages/     images, organized by drive-sequence subfolders
-     Annotations/    matching VOC XML files, same subfolder structure
+     JPEGImages/<quality>/<drive-sequence>/NNNNNNN.jpg
+     Annotations/<quality>/<drive-sequence>/NNNNNNN.xml
      train.txt
      val.txt
      test.txt        no annotations — not usable for training
    ```
+   Note **two** nesting levels under `JPEGImages/`, e.g.
+   `JPEGImages/highquality_16k/BLR-2018-06-19-06-21-44_part_26/0000899.jpg`.
+   The original draft assumed one.
+
+   **Frame numbers restart in every sequence folder**, so `0000899.jpg` exists
+   many times over. Flattening into a single `images/train/` therefore
+   collides and would silently discard most of the set. Every file must be
+   renamed to its path with separators folded in, e.g.
+   `highquality_16k__BLR-2018-06-19-06-21-44_part_26__0000899.jpg`, and the
+   label `.txt` must carry the identical stem.
 
 2. **Spot-check one file pair.** Pick one entry from `train.txt`, open both the
    `.jpg` and its `.xml`. Confirm the XML has `<object><name>...</name>
@@ -54,15 +81,22 @@ Rejected alternatives and why:
 
 4. **Convert VOC XML → YOLO txt.** One `.txt` per image, one line per box:
    `<class_id> <x_center/w> <y_center/h> <box_w/w> <box_h/h>`, all normalized
-   0–1. Reuse the class-id mapping already in `pipeline.py`'s
-   `CLASS_NAME_MAP` for consistency (`car=2, motorcycle=3, bus=5, truck=7`);
-   add a new id (e.g. `8`) for `autorickshaw` if included.
+   0–1. Use **contiguous ids** (see Correction 1) — `autorickshaw` **is**
+   included, giving 5 classes:
+
+   | id | name |
+   |----|------|
+   | 0  | car |
+   | 1  | motorcycle |
+   | 2  | bus |
+   | 3  | truck |
+   | 4  | autorickshaw |
 
    ```python
    # backend/scripts/convert_idd_to_yolo.py (to be written)
    import xml.etree.ElementTree as ET
 
-   CLASS_MAP = {"car": 2, "motorcycle": 3, "bus": 5, "truck": 7, "autorickshaw": 8}
+   CLASS_MAP = {"car": 0, "motorcycle": 1, "bus": 2, "truck": 3, "autorickshaw": 4}
 
    def convert_one(xml_path, out_txt_path):
        tree = ET.parse(xml_path)
@@ -92,8 +126,14 @@ Rejected alternatives and why:
      images/train/   images/val/
      labels/train/   labels/val/
    ```
-   Copy (or symlink, to save space on a 22.8 GB set) images per split;
-   write converted labels into the matching `labels/` folder.
+   The `images`/`labels` names are load-bearing: Ultralytics derives each
+   label path from its image path by string-replacing `/images/` → `/labels/`.
+   IDD's own `JPEGImages`/`Annotations` names will not work.
+
+   Use **hardlinks**, not copies — a copy would duplicate ~23 GB for no gain.
+   On Windows, `New-Item -ItemType HardLink` needs no admin rights (unlike
+   symlinks, which require Developer Mode); the extract and the repo are both
+   on `D:`, and hardlinks are same-volume-only, so this works.
 
 6. **Sanity check.**
    - `ls images/train | wc -l` vs `ls labels/train | wc -l` — counts should
@@ -107,9 +147,11 @@ Rejected alternatives and why:
 ```yaml
 train: dataset/images/train
 val: dataset/images/val
-nc: 4   # 5 if autorickshaw included
-names: ["car", "motorcycle", "bus", "truck"]   # add "autorickshaw" if used
+nc: 5
+names: ["car", "motorcycle", "bus", "truck", "autorickshaw"]
 ```
+`names` order **must** match the id table in Step 1.4 exactly — the list index
+*is* the class id. Reordering this list silently relabels the whole dataset.
 Save as `backend/dataset/traffic_data.yaml` — matches the default path already
 hardcoded in `train_yolov8.py`'s argparse.
 
@@ -130,14 +172,20 @@ def train_custom_model(data_yaml, epochs, batch_size):
 ```
 Keep the existing argparse interface as-is.
 
-## Step 5 — Run on GPU machine
+## Step 5 — Run training
 
-CPU-only training on the current dev machine was ruled out as impractical
-(see `BACKEND_FIX_PLAN.md` section 04). Run on the separate GPU laptop:
+Runs on this machine — GTX 1650 Ti, 4 GB (Correction 2). Install the CUDA
+build of torch explicitly; a plain `pip install ultralytics` can pull the
+CPU-only wheel and training then silently falls back to CPU.
 ```bash
 pip install ultralytics
-python scripts/train_yolov8.py --data dataset/traffic_data.yaml --epochs 50 --batch 16
+python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+python scripts/train_yolov8.py --data dataset/traffic_data.yaml --epochs 50 --batch 8
 ```
+`--batch 8` because of the 4 GB VRAM ceiling. If it still OOMs, drop to 4
+before reducing `imgsz` — smaller images cost more mAP than smaller batches.
+Expect this to run for many hours; use `nohup`/background and check
+`runs/detect/train/results.csv` for progress.
 
 ## Step 6 — Validate
 
@@ -152,8 +200,17 @@ Copy `best.pt` into `backend/weights/`, update `default.yaml`:
 model:
   yolo_weights: "weights/best.pt"
 ```
-No other code change needed — `vehicle_detector.py` already loads whatever
-path the config points to.
+`vehicle_detector.py` already loads whatever path the config points to, but
+**one code change is required**: `CLASS_NAME_MAP` in
+`src/pipeline/pipeline.py` still holds COCO ids and must be replaced with the
+fine-tuned model's contiguous ids, or every detection gets mislabelled:
+```python
+CLASS_NAME_MAP = {
+    0: "Car", 1: "Motorcycle", 2: "Bus", 3: "Truck", 4: "Autorickshaw",
+}
+```
+Note this makes `pipeline.py` incompatible with the stock `yolov8n.pt` — the
+two id schemes cannot both be live. Swap the weights and the map together.
 
 ## Step 8 — Re-benchmark
 
