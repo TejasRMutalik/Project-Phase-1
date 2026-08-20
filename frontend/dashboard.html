@@ -510,6 +510,28 @@
                             <!-- Populated by JS -->
                         </div>
                     </div>
+
+                    <div class="panel" style="flex: 0.7;">
+                        <div class="panel-header">
+                            <span>RECENT UPLOADS</span>
+                            <span style="font-size: 0.7rem; color: var(--text-muted)">LATEST 4</span>
+                        </div>
+                        <div class="table-container">
+                            <table id="recentUploadsTable">
+                                <thead>
+                                    <tr>
+                                        <th>FILE</th>
+                                        <th>STATUS</th>
+                                        <th>VEHICLES</th>
+                                        <th>VIOLATIONS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentUploadsBody">
+                                    <!-- Populated by JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -523,11 +545,6 @@
             platesRead: 1185,
             violations: 87,
         };
-
-        const vehicleClasses = ['CAR', 'MOTORCYCLE', 'TRUCK', 'BUS', 'AUTO'];
-        const platePrefixes = ['KA01', 'KA03', 'KA53', 'KA51', 'MH12', 'TN09', 'DL4C', 'KA05', 'AP09'];
-        const plateChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        const violationTypes = ['SIGNAL JUMP', 'OVERSPEEDING', 'NO HELMET', 'WRONG LANE', 'TRIPLE RIDING'];
 
         const camNames = [
             'CAM-01 | K.R. PURAM JUNCTION',
@@ -559,15 +576,6 @@
         const violationFlash = document.getElementById('violationFlash');
         const violationText = document.getElementById('violationText');
         const timestampOverlay = document.getElementById('timestampOverlay');
-
-        // === Simulation Helpers ===
-        function generatePlate() {
-            const prefix = platePrefixes[Math.floor(Math.random() * platePrefixes.length)];
-            const l1 = plateChars[Math.floor(Math.random() * 26)];
-            const l2 = plateChars[Math.floor(Math.random() * 26)];
-            const num = Math.floor(1000 + Math.random() * 8999);
-            return `${prefix}${l1}${l2}${num}`;
-        }
 
         function getTimestamp() {
             const now = new Date();
@@ -651,54 +659,102 @@
             timestampOverlay.textContent = getDateTimestamp();
         }
 
-        // === Simulated data stream (runs alongside real video) ===
-        function simulateDetection() {
-            const vClass = vehicleClasses[Math.floor(Math.random() * vehicleClasses.length)];
-            const plate = generatePlate();
-            const conf = Math.floor(80 + Math.random() * 18);
+        // === Real WebSocket Connection to Backend (/ws/live) ===
+        let ws = null;
 
-            state.totalDetected++;
-            document.getElementById('statDetected').innerText = state.totalDetected.toLocaleString();
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host || '127.0.0.1:8000'}/ws/live`;
+            
+            addLog('SYSTEM', `Connecting to live backend feed at ${wsUrl}...`);
+            ws = new WebSocket(wsUrl);
 
-            // Randomly update active tracks
-            state.activeTracks = Math.floor(8 + Math.random() * 12);
-            document.getElementById('statTracks').innerText = state.activeTracks;
+            ws.onopen = () => {
+                addLog('SYSTEM', 'WebSocket connected. Receiving real-time pipeline feed.');
+            };
 
-            // OCR read
-            state.platesRead++;
-            document.getElementById('statPlates').innerText = state.platesRead.toLocaleString();
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    handlePipelineFrame(data);
+                } catch (err) {
+                    console.error('Error parsing WebSocket frame:', err);
+                }
+            };
 
-            // Log detection
-            addLog('YOLOv8', `Detection: ${vClass} (conf: ${(conf / 100).toFixed(2)}) at frame ${Math.floor(Math.random() * 9000)}`);
+            ws.onerror = (err) => {
+                addLog('SYSTEM', 'WebSocket error. Falling back to local preview mode.');
+            };
 
-            // Sometimes log OCR
-            if (Math.random() > 0.3) {
-                setTimeout(() => {
-                    addLog('EasyOCR', `Plate read: ${plate} (Conf: ${(0.8 + Math.random() * 0.15).toFixed(2)})`);
-                }, 200 + Math.random() * 400);
-            }
-
-            // Sometimes log DeepSORT
-            if (Math.random() > 0.5) {
-                setTimeout(() => {
-                    addLog('DeepSORT', `Track #${10000 + Math.floor(Math.random() * 5000)} confirmed (${vClass})`);
-                }, 100 + Math.random() * 300);
-            }
-
-            // Check for violation (~8% chance)
-            if (Math.random() < 0.08) {
-                const violationType = violationTypes[Math.floor(Math.random() * violationTypes.length)];
-                setTimeout(() => {
-                    triggerViolation(violationType, plate, vClass);
-                }, 500 + Math.random() * 1000);
-            } else {
-                addTableRow(plate, vClass, conf, null);
-            }
+            ws.onclose = () => {
+                addLog('SYSTEM', 'WebSocket disconnected. Reconnecting in 3 seconds...');
+                setTimeout(connectWebSocket, 3000);
+            };
         }
 
-        // === FPS Counter simulation ===
-        function updateFPS() {
-            document.getElementById('fpsDisplay').innerText = `${Math.floor(Math.random() * 5 + 28)} FPS`;
+        function handlePipelineFrame(data) {
+            const vehicles = data.vehicles || [];
+            const violations = data.violations || [];
+
+            if (data.fps) {
+                document.getElementById('fpsDisplay').innerText = `${data.fps} FPS`;
+            }
+
+            // Update stats counters
+            state.totalDetected += vehicles.length;
+            state.activeTracks = vehicles.length;
+            
+            vehicles.forEach(v => {
+                if (v.plate_number && v.plate_number !== 'UNKNOWN') {
+                    state.platesRead++;
+                }
+            });
+
+            document.getElementById('statDetected').innerText = state.totalDetected.toLocaleString();
+            document.getElementById('statTracks').innerText = state.activeTracks;
+            document.getElementById('statPlates').innerText = state.platesRead.toLocaleString();
+
+            // Handle vehicles & logs
+            vehicles.forEach(v => {
+                addLog('YOLOv8', `Frame #${data.frame_idx}: Detected ${v.vehicle_class} (Conf: ${v.confidence})`);
+                addLog('DeepSORT', `Track #${v.track_id} active (${v.vehicle_class})`);
+                
+                if (v.plate_number && v.plate_number !== 'UNKNOWN') {
+                    addLog('EasyOCR', `Plate Read: ${v.plate_number} (Conf: ${v.plate_confidence})`);
+                }
+
+                if (v.violations && v.violations.length > 0) {
+                    v.violations.forEach(vtype => {
+                        triggerViolation(vtype, v.plate_number || 'UNKNOWN', v.vehicle_class);
+                    });
+                } else {
+                    addTableRow(v.plate_number || 'UNKNOWN', v.vehicle_class, Math.floor(v.confidence * 100), null);
+                }
+            });
+        }
+
+        // === Recent uploaded files panel ===
+        async function loadRecentUploads() {
+            try {
+                const res = await fetch('/api/jobs?limit=4');
+                const jobs = await res.json();
+                const tbody = document.getElementById('recentUploadsBody');
+                tbody.innerHTML = '';
+
+                jobs.forEach(job => {
+                    const tr = document.createElement('tr');
+                    const statusClass = job.status === 'FAILED' ? 'violation' : 'normal';
+                    tr.innerHTML = `
+                        <td style="max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${job.filename}">${job.filename}</td>
+                        <td><span class="badge ${statusClass}">${job.status}${job.status === 'PROCESSING' ? ' ' + Math.floor(job.progress) + '%' : ''}</span></td>
+                        <td>${job.vehicles_detected}</td>
+                        <td>${job.violations_flagged}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (err) {
+                console.error('Error loading recent uploads:', err);
+            }
         }
 
         // === Initialize ===
@@ -714,7 +770,6 @@
                         videoEl.play().catch(() => { });
                     }
                 }, true);
-                // Also handle source error
                 const source = videoEl.querySelector('source');
                 if (source) {
                     source.addEventListener('error', function () {
@@ -728,50 +783,22 @@
                 }
             }
 
-            // Setup fallback for main video
             setupVideoFallback(mainVideo, 0);
-
-            // Setup fallback for mini cams
             document.querySelectorAll('.mini-cam video').forEach((video, index) => {
                 setupVideoFallback(video, index + 1);
             });
 
-            // Boot sequence logs
             addLog('SYSTEM', 'Booting Project Phase 1 Traffic Surveillance System v2.1...');
             addLog('SYSTEM', 'Loading configs from default.yaml...');
-            setTimeout(() => addLog('YOLOv8', 'Weights loaded successfully (yolov8n.pt)'), 500);
-            setTimeout(() => addLog('DeepSORT', 'Tracker initialized. max_age=30, n_init=3'), 800);
-            setTimeout(() => addLog('EasyOCR', 'OCR engine loaded (lang: en, gpu: true)'), 1200);
-            setTimeout(() => {
-                addLog('API', 'Stream Server running on ws://0.0.0.0:8000');
-                addLog('SYSTEM', 'All cameras online. Starting inference pipeline...');
-            }, 1500);
 
-            // Update live timestamp every second
             updateTimestamp();
             setInterval(updateTimestamp, 1000);
 
-            // Update FPS every second
-            setInterval(updateFPS, 1000);
+            loadRecentUploads();
+            setInterval(loadRecentUploads, 5000);
 
-            // Simulate detections at random intervals (every 2-5 seconds)
-            function scheduleNextDetection() {
-                const delay = 2000 + Math.random() * 3000;
-                setTimeout(() => {
-                    simulateDetection();
-                    scheduleNextDetection();
-                }, delay);
-            }
-
-            // Start simulation after boot
-            setTimeout(() => {
-                scheduleNextDetection();
-            }, 2000);
-
-            // Periodic YOLOv8 inference log
-            setInterval(() => {
-                addLog('YOLOv8', `Inference complete: ${state.activeTracks} objects detected in ${(8 + Math.random() * 8).toFixed(1)}ms`);
-            }, 5000);
+            // Connect to real backend WebSocket
+            connectWebSocket();
         }
 
         window.onload = init;

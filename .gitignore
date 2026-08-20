@@ -30,3 +30,8 @@ Thumbs.db
 
 # Large demo asset downloads (optional)
 # frontend/assets/videos/*.mp4
+
+# Fetchable/runtime artifacts - not source
+backend/weights/
+backend/assets/
+backend/uploads/

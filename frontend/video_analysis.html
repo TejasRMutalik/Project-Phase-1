@@ -163,20 +163,23 @@
             <div class="results-section" id="resultsSection">
                 <div class="results-header">
                     <h2 style="font-size: 1.25rem;">Analysis Complete</h2>
-                    <button style="padding: 8px 16px; background: var(--bg-panel); border: 1px solid var(--border-color); color: white; border-radius: 4px; cursor: pointer;" onclick="location.reload()">New Analysis</button>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <a id="downloadCsvBtn" href="#" style="padding: 8px 16px; background: var(--bg-panel); border: 1px solid var(--border-color); color: white; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block;">Download CSV</a>
+                        <button style="padding: 8px 16px; background: var(--bg-panel); border: 1px solid var(--border-color); color: white; border-radius: 4px; cursor: pointer;" onclick="location.reload()">New Analysis</button>
+                    </div>
                 </div>
 
                 <div class="stats-row">
                     <div class="panel" style="padding: 1.5rem; text-align: center;">
-                        <div style="font-size: 2rem; font-weight: 800; font-family: 'JetBrains Mono';">342</div>
+                        <div style="font-size: 2rem; font-weight: 800; font-family: 'JetBrains Mono';" id="resVehicles">0</div>
                         <div style="font-size: 0.75rem; color: var(--text-muted);">VEHICLES DETECTED</div>
                     </div>
                     <div class="panel" style="padding: 1.5rem; text-align: center;">
-                        <div style="font-size: 2rem; font-weight: 800; font-family: 'JetBrains Mono'; color: var(--accent-red);">12</div>
+                        <div style="font-size: 2rem; font-weight: 800; font-family: 'JetBrains Mono'; color: var(--accent-red);" id="resViolations">0</div>
                         <div style="font-size: 0.75rem; color: var(--text-muted);">VIOLATIONS FLAGGED</div>
                     </div>
                     <div class="panel" style="padding: 1.5rem; text-align: center;">
-                        <div style="font-size: 2rem; font-weight: 800; font-family: 'JetBrains Mono'; color: var(--accent-green);">289</div>
+                        <div style="font-size: 2rem; font-weight: 800; font-family: 'JetBrains Mono'; color: var(--accent-green);" id="resPlates">0</div>
                         <div style="font-size: 0.75rem; color: var(--text-muted);">PLATES RECOGNIZED</div>
                     </div>
                 </div>
@@ -235,56 +238,92 @@
         logStream.scrollTop = logStream.scrollHeight;
     }
 
-    function handleFile(file) {
+    async function handleFile(file) {
         uploadZone.style.display = 'none';
         processingState.style.display = 'flex';
         processTitle.innerText = `Analyzing: ${file.name}`;
         
-        let pct = 0;
-        addLog(`Loaded file ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
-        addLog('Extracting frames at 30 FPS...');
+        addLog(`Uploading ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB) to backend API...`);
 
-        const interval = setInterval(() => {
-            pct += Math.random() * 5;
-            if(pct > 100) pct = 100;
-            
-            progressBar.style.width = pct + '%';
-            processPct.innerText = Math.floor(pct) + '%';
+        const formData = new FormData();
+        formData.append('file', file);
 
-            if(pct > 10 && Math.random() > 0.8) addLog(`[YOLOv8] Processing frame ${Math.floor(pct * 30)}...`);
-            if(pct > 30 && Math.random() > 0.9) addLog(`[DeepSORT] Tracking 4 objects...`);
-            if(pct > 50 && Math.random() > 0.9) addLog(`[EasyOCR] Running ANPR inference...`);
+        try {
+            const res = await fetch('/api/upload_video', {
+                method: 'POST',
+                body: formData
+            });
 
-            if(pct === 100) {
-                clearInterval(interval);
-                addLog('Analysis Complete. Generating report...');
-                setTimeout(showResults, 1000);
-            }
-        }, 150);
+            if (!res.ok) throw new Error('Upload failed with status ' + res.status);
+
+            const data = await res.json();
+            const jobId = data.job_id;
+            addLog(`Job queued successfully. Job ID: ${jobId}`);
+
+            pollJobProgress(jobId);
+        } catch (err) {
+            addLog(`Error uploading video: ${err.message}`);
+            console.error(err);
+        }
     }
 
-    function showResults() {
+    function pollJobProgress(jobId) {
+        const interval = setInterval(async () => {
+            try {
+                const res = await fetch(`/api/jobs/${jobId}`);
+                if (!res.ok) return;
+
+                const job = await res.json();
+                const pct = job.progress || 0;
+
+                progressBar.style.width = pct + '%';
+                processPct.innerText = Math.floor(pct) + '%';
+
+                addLog(`[Job Engine] Status: ${job.status} (${pct}%)`);
+
+                if (job.status === 'COMPLETED') {
+                    clearInterval(interval);
+                    addLog('Analysis Complete. Fetching recorded violation reports...');
+                    setTimeout(() => showResults(jobId), 1000);
+                } else if (job.status === 'FAILED') {
+                    clearInterval(interval);
+                    addLog('[ERROR] Job processing failed on server.');
+                }
+            } catch (err) {
+                console.error('Error polling job progress:', err);
+            }
+        }, 1000);
+    }
+
+    async function showResults(jobId) {
         processingState.style.display = 'none';
         resultsSection.style.display = 'flex';
+        document.getElementById('downloadCsvBtn').href = `/api/jobs/${jobId}/report.csv`;
 
         const tbody = document.getElementById('resultsBody');
-        const plates = ['KA01MH1234', 'MH12XX9921', 'TN09AB1122', 'DL4CAA9900'];
-        const types = ['NO HELMET', 'SIGNAL JUMP', 'OVERSPEEDING'];
-        const vclasses = ['MOTORCYCLE', 'CAR', 'CAR', 'TRUCK'];
+        tbody.innerHTML = '';
 
-        for(let i=0; i<12; i++) {
-            const tr = document.createElement('tr');
-            const vtype = types[Math.floor(Math.random()*types.length)];
-            const vclass = vtype === 'NO HELMET' ? 'MOTORCYCLE' : vclasses[Math.floor(Math.random()*vclasses.length)];
-            
-            tr.innerHTML = `
-                <td style="color: #6b7280">00:${String(Math.floor(Math.random()*59)).padStart(2, '0')}:${String(Math.floor(Math.random()*59)).padStart(2, '0')}</td>
-                <td><span class="badge violation">${vtype}</span></td>
-                <td>${vclass}</td>
-                <td style="font-weight: 700;">${plates[Math.floor(Math.random()*plates.length)]}</td>
-                <td>${Math.floor(80 + Math.random()*15)}%</td>
-            `;
-            tbody.appendChild(tr);
+        try {
+            const res = await fetch(`/api/jobs/${jobId}/results`);
+            const data = await res.json();
+
+            document.getElementById('resVehicles').innerText = data.vehicles_detected;
+            document.getElementById('resViolations').innerText = data.violations_flagged;
+            document.getElementById('resPlates').innerText = data.plates_read;
+
+            data.violations.slice(0, 15).forEach(v => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="color: #6b7280">${v.timestamp ? v.timestamp.split('T')[1].split('.')[0] : '12:00:00'}</td>
+                    <td><span class="badge violation">${v.violation_type}</span></td>
+                    <td>${v.vehicle_class}</td>
+                    <td style="font-weight: 700;">${v.plate_number}</td>
+                    <td>${v.plate_confidence ? Math.floor(v.plate_confidence * 100) : 85}%</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (err) {
+            console.error('Error fetching job results:', err);
         }
     }
 </script>

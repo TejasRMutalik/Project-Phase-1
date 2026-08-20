@@ -1,6 +1,6 @@
 model:
   yolo_weights: "weights/yolov8n.pt"
-  confidence_threshold: 0.5
+  confidence_threshold: 0.25
   iou_threshold: 0.45
   classes: [2, 3, 5, 7] # car, motorcycle, bus, truck
 
@@ -18,3 +18,15 @@ camera:
     - "rtsp://camera1.local/stream"
     - "rtsp://camera2.local/stream"
   fps: 30
+
+violations:
+  speed_limit_kmh: 40.0
+  pixels_per_meter: 10.0
+  stop_line_y: 250
+  # No real signal hardware exists, so RED/GREEN is simulated on a wall-clock timer.
+  signal_red_seconds: 10.0
+  signal_green_seconds: 10.0
+  # Heuristic stopgap for helmet detection (Canny edge density in top 30% of the
+  # rider crop) until a trained head-region classifier replaces it in Phase-2.
+  helmet_edge_density_threshold: 0.12
+

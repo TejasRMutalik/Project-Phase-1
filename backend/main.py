@@ -1,22 +1,39 @@
-import argparse
+import os
+import sys
 import asyncio
 import logging
-from fastapi import FastAPI, UploadFile, File
+
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 import uvicorn
-import os
 
-# Removed heavy ML imports to allow fast startup of the mock FastAPI server
+# Ensure backend directory in sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from db.session import init_db
+from src.pipeline.pipeline import SurveillancePipeline
+from src.api import shared
+from src.api.routes_live import router as live_router
+from src.api.routes_upload import router as upload_router
+from src.api.routes_config import router as config_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("ProjectPhase1")
 
-app = FastAPI(title="Project Phase 1 Backend API")
+app = FastAPI(title="Project Phase 1 Backend API", version="1.0.0")
 
-# Allow CORS for development
+
+@app.on_event("startup")
+def on_startup():
+    logger.info("Initializing database...")
+    init_db()
+    logger.info("Initializing Surveillance Pipeline...")
+    shared.pipeline = SurveillancePipeline(shared.CONFIG_PATH)
+    shared.MAIN_LOOP = asyncio.get_event_loop()
+
+
+# Allow CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,29 +41,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# API Routes
-@app.get("/api/status")
-async def get_status():
-    """Mock API endpoint for system status"""
-    return {"status": "operational", "active_cameras": 1, "version": "1.0.0"}
+app.include_router(live_router)
+app.include_router(upload_router)
+app.include_router(config_router)
 
-@app.post("/api/upload_video")
-async def upload_video(file: UploadFile = File(...)):
-    """Mock endpoint to receive video file for analysis"""
-    logger.info(f"Received video file for analysis: {file.filename}")
-    # Here we would normally save the file and run inference
-    # We will simulate a successful upload response
-    return JSONResponse(status_code=200, content={"message": "Video received. Processing started.", "filename": file.filename})
-
-# Mount the frontend directory as static files
+# Mount frontend static directory
 frontend_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")
 if os.path.exists(frontend_dir):
     logger.info(f"Serving frontend from {frontend_dir}")
     app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 else:
-    logger.warning(f"Frontend directory not found at {frontend_dir}. Please create it to serve the UI.")
-
+    logger.warning(f"Frontend directory not found at {frontend_dir}.")
 
 if __name__ == "__main__":
-    logger.info("Starting Project Phase 1 Backend Server with FastAPI...")
+    logger.info("Starting Project Phase 1 Backend Server on http://0.0.0.0:8000...")
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

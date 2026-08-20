@@ -86,17 +86,17 @@
                 <div style="padding: 1.5rem;">
                     <div class="form-group">
                         <label>YOLO Model Path</label>
-                        <input type="text" class="form-control" value="weights/yolov8n.pt">
+                        <input type="text" id="inputYoloPath" class="form-control" value="weights/yolov8n.pt">
                     </div>
                     <div class="form-group">
                         <label>Detection Confidence Threshold</label>
-                        <input type="number" class="form-control" value="0.5" step="0.05">
+                        <input type="number" id="inputConfThresh" class="form-control" value="0.25" step="0.05">
                     </div>
                     <div class="form-group">
                         <label>DeepSORT Max Age</label>
-                        <input type="number" class="form-control" value="30">
+                        <input type="number" id="inputMaxAge" class="form-control" value="30">
                     </div>
-                    <button class="btn" onclick="alert('Settings saved. Restart required.')">Save Configuration</button>
+                    <button class="btn" onclick="saveConfig()">Save Configuration</button>
                 </div>
             </div>
 
@@ -105,11 +105,11 @@
                 <div style="padding: 1.5rem;">
                     <div class="form-group">
                         <label>Camera 01 (Main Feed) RTSP URL</label>
-                        <input type="text" class="form-control" value="rtsp://krpuram.local/stream1">
+                        <input type="text" id="inputCam1" class="form-control" value="rtsp://krpuram.local/stream1">
                     </div>
                     <div class="form-group">
                         <label>Camera 02 RTSP URL</label>
-                        <input type="text" class="form-control" value="rtsp://krpuram.local/stream2">
+                        <input type="text" id="inputCam2" class="form-control" value="rtsp://krpuram.local/stream2">
                     </div>
                     <button class="btn" style="background: var(--bg-base); border: 1px solid var(--border-color); margin-top: 1rem;">+ Add Camera</button>
                 </div>
@@ -118,5 +118,70 @@
     </main>
 </div>
 
+<script>
+    async function loadConfig() {
+        try {
+            const res = await fetch('/api/config');
+            if (!res.ok) return;
+            const cfg = await res.json();
+            
+            if (cfg.model) {
+                document.getElementById('inputYoloPath').value = cfg.model.yolo_weights || 'weights/yolov8n.pt';
+                document.getElementById('inputConfThresh').value = cfg.model.confidence_threshold || 0.25;
+            }
+            if (cfg.tracker) {
+                document.getElementById('inputMaxAge').value = cfg.tracker.max_age || 30;
+            }
+            if (cfg.camera && cfg.camera.sources) {
+                if (cfg.camera.sources[0]) document.getElementById('inputCam1').value = cfg.camera.sources[0];
+                if (cfg.camera.sources[1]) document.getElementById('inputCam2').value = cfg.camera.sources[1];
+            }
+        } catch (err) {
+            console.error('Error loading configuration:', err);
+        }
+    }
+
+    async function saveConfig() {
+        const payload = {
+            model: {
+                yolo_weights: document.getElementById('inputYoloPath').value,
+                confidence_threshold: parseFloat(document.getElementById('inputConfThresh').value) || 0.25,
+                iou_threshold: 0.45,
+                classes: [2, 3, 5, 7]
+            },
+            tracker: {
+                max_age: parseInt(document.getElementById('inputMaxAge').value) || 30,
+                n_init: 2,
+                nn_budget: 100
+            },
+            camera: {
+                sources: [
+                    document.getElementById('inputCam1').value,
+                    document.getElementById('inputCam2').value
+                ],
+                fps: 30
+            }
+        };
+
+        try {
+            const res = await fetch('/api/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                alert('Configuration saved successfully to backend (configs/default.yaml)!');
+            } else {
+                alert('Error saving configuration.');
+            }
+        } catch (err) {
+            console.error('Error saving config:', err);
+            alert('Failed to connect to backend server.');
+        }
+    }
+
+    window.onload = loadConfig;
+</script>
 </body>
 </html>
