@@ -42,3 +42,10 @@ backend/uploads/
 backend/dataset/*
 !backend/dataset/traffic_data.yaml
 backend/runs/
+
+# Next.js and frontend dependencies
+node_modules/
+.next/
+frontend/node_modules/
+frontend/.next/
+

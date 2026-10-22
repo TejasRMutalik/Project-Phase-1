@@ -22,7 +22,14 @@ SAMPLE_VIDEO = os.path.join(
 @router.get("/api/status")
 async def get_status():
     """System operational status endpoint."""
-    return {"status": "operational", "active_cameras": 1, "version": "1.0.0", "ml_engine": "YOLOv8 + DeepSORT + EasyOCR"}
+    return {
+        "status": "operational",
+        "active_cameras": 1,
+        "version": "1.0.0",
+        "ml_engine": "YOLOv8 + DeepSORT + EasyOCR",
+        "scheduling_governor": "RATG-OC (Risk-Adaptive Temporal Gating)",
+        "gating_enabled": getattr(shared.pipeline, "ratg_enabled", True) if shared.pipeline else True
+    }
 
 
 @router.get("/api/violations")

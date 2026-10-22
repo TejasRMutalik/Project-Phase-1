@@ -47,11 +47,26 @@ class DeepSortTracker:
             logger.warning("deep_sort_realtime not installed. Falling back to mock tracker.")
             self.tracker = None
             self.next_id = 1
+        self.track_classes = {} # track_id -> int(cls_id)
+
+    def get_mean_covariance_trace(self) -> float:
+        """
+        Computes the mean trace of active Kalman covariance matrices (u_t in RATG-OC Eq. 1).
+        Rises as tracks coast in propagate mode without fresh detector updates.
+        """
+        if not self.tracker or not hasattr(self.tracker, 'tracker') or not hasattr(self.tracker.tracker, 'tracks'):
+            return 0.0
+        traces = []
+        for t in self.tracker.tracker.tracks:
+            if t.is_confirmed() and hasattr(t, 'covariance') and t.covariance is not None:
+                traces.append(float(np.trace(t.covariance)))
+        return float(np.mean(traces)) if traces else 0.0
 
     def update(self, detections: list, frame: np.ndarray = None) -> list:
         """
         Updates tracker with new detections.
-        Input detections format: [[x1, y1, x2, y2, conf, class_id], ...]
+        In RATG-OC Primary Mode: detections contains YOLO detections.
+        In RATG-OC Propagate Mode: detections is empty ([]), advancing Kalman filter state without detector pass.
         Returns active tracks list:
           [{"track_id": int/str, "bbox": [x1, y1, x2, y2], "class_id": int, "confidence": float}, ...]
         """
@@ -75,7 +90,13 @@ class DeepSortTracker:
 
                 track_id = track.track_id
                 ltrb = track.to_ltrb() # left, top, right, bottom
-                cls_id = int(track.get_det_class()) if track.get_det_class() is not None else 0
+                raw_cls = track.get_det_class()
+                if raw_cls is not None:
+                    cls_id = int(raw_cls)
+                    self.track_classes[str(track_id)] = cls_id
+                else:
+                    cls_id = self.track_classes.get(str(track_id), 2)
+
                 active_tracks.append({
                     "track_id": track_id,
                     "bbox": [float(ltrb[0]), float(ltrb[1]), float(ltrb[2]), float(ltrb[3])],
@@ -96,3 +117,4 @@ class DeepSortTracker:
                     self.next_id = getattr(self, 'next_id', 1) + 1
 
         return active_tracks
+

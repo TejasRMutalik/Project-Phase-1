@@ -75,10 +75,27 @@
             border: 1px solid rgba(16, 185, 129, 0.15);
         }
 
+        .ratg-indicator {
+            position: absolute;
+            top: 15px;
+            right: 115px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: #38bdf8;
+            background: rgba(14, 165, 233, 0.2);
+            padding: 5px 10px;
+            border-radius: 6px;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
         .rec-indicator {
             position: absolute;
             top: 15px;
-            right: 120px;
+            right: 320px;
             display: flex;
             align-items: center;
             gap: 6px;
@@ -497,6 +514,7 @@
                             REC
                         </div>
 
+                        <div class="ratg-indicator" id="ratgDisplay"><span style="width:7px; height:7px; border-radius:50%; background:#38bdf8; display:inline-block;"></span>RATG: PRIMARY</div>
                         <div class="fps-counter" id="fpsDisplay">30 FPS</div>
 
                         <div class="timestamp-overlay" id="timestampOverlay"></div>
@@ -822,6 +840,19 @@
 
             if (data.fps) {
                 document.getElementById('fpsDisplay').innerText = `${data.fps} FPS`;
+            }
+
+            if (data.ratg_mode) {
+                const ratgEl = document.getElementById('ratgDisplay');
+                if (ratgEl) {
+                    const isPrimary = data.ratg_mode === 'PRIMARY';
+                    const dotColor = isPrimary ? '#38bdf8' : '#34d399';
+                    const riskStr = (typeof data.risk_score === 'number') ? data.risk_score.toFixed(2) : (data.risk_score || '0.00');
+                    ratgEl.innerHTML = `<span style="width:7px; height:7px; border-radius:50%; background:${dotColor}; display:inline-block;"></span>RATG: ${data.ratg_mode} (r=${riskStr})`;
+                    ratgEl.style.color = isPrimary ? '#38bdf8' : '#34d399';
+                    ratgEl.style.borderColor = isPrimary ? 'rgba(56, 189, 248, 0.35)' : 'rgba(52, 211, 153, 0.35)';
+                    ratgEl.style.background = isPrimary ? 'rgba(14, 165, 233, 0.2)' : 'rgba(16, 185, 129, 0.2)';
+                }
             }
 
             // Update stats counters

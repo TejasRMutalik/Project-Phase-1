@@ -114,6 +114,50 @@
                     <button class="btn" style="background: var(--bg-base); border: 1px solid var(--border-color); margin-top: 1rem;">+ Add Camera</button>
                 </div>
             </div>
+
+            <div class="panel" style="grid-column: span 2;">
+                <div class="panel-header">RATG-OC ADAPTIVE SCHEDULING (RESEARCH PAPER CONFIGURATION)</div>
+                <div style="padding: 1.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                    <div class="form-group">
+                        <label>RATG Adaptive Gating</label>
+                        <select id="inputRatgEnabled" class="form-control">
+                            <option value="true">Enabled (Adaptive Mode)</option>
+                            <option value="false">Disabled (Full Fixed-Rate Baseline)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Risk Threshold (&tau;<sub>D</sub>)</label>
+                        <input type="number" id="inputTauD" class="form-control" value="0.5" step="0.05" min="0.1" max="1.0">
+                    </div>
+                    <div class="form-group">
+                        <label>Boundary Proximity Override (&tau;<sub>Z</sub>)</label>
+                        <input type="number" id="inputTauZ" class="form-control" value="0.7" step="0.05" min="0.1" max="1.0">
+                    </div>
+                    <div class="form-group">
+                        <label>Max Propagate Frames (K<sub>max</sub>)</label>
+                        <input type="number" id="inputKMax" class="form-control" value="4" min="1" max="12">
+                    </div>
+                    <div class="form-group">
+                        <label>Laplacian Blur Threshold (&tau;<sub>L</sub>)</label>
+                        <input type="number" id="inputTauL" class="form-control" value="100.0" step="10.0">
+                    </div>
+                    <div class="form-group">
+                        <label>Consensus Weight Threshold (&tau;<sub>C</sub>)</label>
+                        <input type="number" id="inputTauC" class="form-control" value="2.0" step="0.2" min="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label>Stability Margin (m)</label>
+                        <input type="number" id="inputStabilityMargin" class="form-control" value="0.5" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Voting Buffer Limit (B)</label>
+                        <input type="number" id="inputCacheLimit" class="form-control" value="10" min="2" max="30">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end;">
+                        <button class="btn" style="width: 100%;" onclick="saveConfig()">Save All Settings</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </main>
 </div>
@@ -136,6 +180,16 @@
                 if (cfg.camera.sources[0]) document.getElementById('inputCam1').value = cfg.camera.sources[0];
                 if (cfg.camera.sources[1]) document.getElementById('inputCam2').value = cfg.camera.sources[1];
             }
+            if (cfg.ratg_oc) {
+                document.getElementById('inputRatgEnabled').value = cfg.ratg_oc.enabled !== false ? 'true' : 'false';
+                document.getElementById('inputTauD').value = cfg.ratg_oc.tau_d ?? 0.5;
+                document.getElementById('inputTauZ').value = cfg.ratg_oc.tau_z ?? 0.7;
+                document.getElementById('inputKMax').value = cfg.ratg_oc.k_max ?? 4;
+                document.getElementById('inputTauL').value = cfg.ratg_oc.tau_l ?? 100.0;
+                document.getElementById('inputTauC').value = cfg.ratg_oc.tau_c ?? 2.0;
+                document.getElementById('inputStabilityMargin').value = cfg.ratg_oc.stability_margin ?? 0.5;
+                document.getElementById('inputCacheLimit').value = cfg.ratg_oc.cache_limit ?? 10;
+            }
         } catch (err) {
             console.error('Error loading configuration:', err);
         }
@@ -151,7 +205,7 @@
             },
             tracker: {
                 max_age: parseInt(document.getElementById('inputMaxAge').value) || 30,
-                n_init: 2,
+                n_init: 3,
                 nn_budget: 100
             },
             camera: {
@@ -160,6 +214,16 @@
                     document.getElementById('inputCam2').value
                 ],
                 fps: 30
+            },
+            ratg_oc: {
+                enabled: document.getElementById('inputRatgEnabled').value === 'true',
+                tau_d: parseFloat(document.getElementById('inputTauD').value) || 0.5,
+                tau_z: parseFloat(document.getElementById('inputTauZ').value) || 0.7,
+                k_max: parseInt(document.getElementById('inputKMax').value) || 4,
+                tau_l: parseFloat(document.getElementById('inputTauL').value) || 100.0,
+                tau_c: parseFloat(document.getElementById('inputTauC').value) || 2.0,
+                stability_margin: parseFloat(document.getElementById('inputStabilityMargin').value) || 0.5,
+                cache_limit: parseInt(document.getElementById('inputCacheLimit').value) || 10
             }
         };
 

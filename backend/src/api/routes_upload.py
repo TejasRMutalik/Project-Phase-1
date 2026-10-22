@@ -152,6 +152,7 @@ async def list_jobs(limit: int = 4, db: Session = Depends(get_db)):
             .count()
         )
         result.append({
+            "id": job.id,
             "job_id": job.id,
             "filename": job.filename,
             "status": job.status,

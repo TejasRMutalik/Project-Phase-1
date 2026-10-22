@@ -30,3 +30,19 @@ violations:
   # rider crop) until a trained head-region classifier replaces it in Phase-2.
   helmet_edge_density_threshold: 0.12
 
+ratg_oc:
+  enabled: true
+  weights: [0.25, 0.20, 0.25, 0.15, 0.15]  # [w_d, w_u, w_z, w_a, w_q]
+  tau_d: 0.5                               # Risk trigger threshold
+  tau_z: 0.7                               # Stop-line boundary override threshold
+  tau_l: 100.0                             # Laplacian blur threshold
+  tau_c: 2.0                               # Cluster consensus weight threshold to permanently lock plate
+  stability_margin: 0.5                    # Margin m leading runner-up cluster
+  k_max: 4                                 # Max propagate frames before forced detector pass
+  cache_limit: 10                          # Max voting cache size per track B
+  hysteresis_delta: 0.05                   # Hysteresis margin to avoid boundary jitter
+  alpha: 1.0                               # Confidence exponent in Eq. 3
+  lambda_param: 0.5                        # Syntax bonus weight in Eq. 3
+  zone_distance: 150.0                     # Stop-line boundary proximity range (px)
+
+

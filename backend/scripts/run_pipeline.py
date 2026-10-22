@@ -29,7 +29,7 @@ def main():
 
         res = pipeline.process_frame(frame, frame_idx=fidx, camera_id="CAM-01", db=db)
         if res["vehicles"]:
-            print(f"Frame {fidx:3d}: {len(res['vehicles'])} vehicles tracked, {res['violations_count']} violations saved.")
+            print(f"Frame {fidx:3d} [{res['ratg_mode']:<9} r={res['risk_score']:.2f}]: {len(res['vehicles'])} vehicles tracked, {res['violations_count']} violations saved.")
 
     cap.release()
 

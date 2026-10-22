@@ -83,6 +83,13 @@ class PlateRecogniser:
 
         return plate_crop
 
+    def compute_crop_sharpness(self, image: np.ndarray) -> float:
+        """Compute Laplacian variance sharpness on image crop (h_ij in RATG-OC Eq. 3)."""
+        if image is None or image.size == 0:
+            return 0.0
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
+        return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
     def clean_plate_text(self, text: str) -> str:
         """Clean and normalize OCR output string (e.g. uppercase, alphanumeric)."""
         if not text:
@@ -115,3 +122,4 @@ class PlateRecogniser:
             logger.warning(f"Error during EasyOCR readtext: {e}")
 
         return ("UNKNOWN", 0.0)
+
